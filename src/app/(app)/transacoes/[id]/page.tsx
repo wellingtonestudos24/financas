@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -28,18 +28,23 @@ async function EditTransaction({ params }: { params: PageProps<"/transacoes/[id]
     transactionFormOptions(user.id),
   ]);
   if (!transaction) notFound();
+  // Pagamentos de fatura são geridos na tela da fatura.
+  if (transaction.type === "CARD_PAYMENT" && transaction.creditCardId && transaction.invoiceMonth) {
+    redirect(`/cartoes/${transaction.creditCardId}?fatura=${toISODate(transaction.invoiceMonth).slice(0, 7)}`);
+  }
+  const type = transaction.type === "CARD_PAYMENT" ? "EXPENSE" : transaction.type;
 
   return (
     <TransactionForm
       {...options}
       initial={{
         id: transaction.id,
-        type: transaction.type,
+        type,
         description: transaction.description,
         amount: centsToInput(transaction.amount),
         date: toISODate(transaction.date),
         paid: transaction.paid,
-        accountId: transaction.accountId,
+        accountId: transaction.creditCardId ? `card:${transaction.creditCardId}` : (transaction.accountId ?? ""),
         toAccountId: transaction.toAccountId ?? "",
         categoryId: transaction.categoryId ?? "",
       }}

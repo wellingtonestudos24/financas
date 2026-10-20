@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { usePathname } from "next/navigation";
-import { ArrowLeftRight, Home, Landmark, Tags, Wallet } from "lucide-react";
+import { ArrowLeftRight, CreditCard, Home, Landmark, Tags, Wallet } from "lucide-react";
 
 const LINKS = [
   { href: "/", label: "Início", icon: Home },
   { href: "/contas", label: "Contas", icon: Landmark },
   { href: "/transacoes", label: "Transações", icon: ArrowLeftRight },
+  { href: "/cartoes", label: "Cartões", icon: CreditCard },
   { href: "/categorias", label: "Categorias", icon: Tags },
 ] as const;
 
@@ -67,7 +68,7 @@ export function Sidebar() {
 
 export function BottomNav() {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-4 border-t border-slate-200 bg-white md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-5 border-t border-slate-200 bg-white md:hidden">
       <NavLinks variant="bottom" />
     </nav>
   );

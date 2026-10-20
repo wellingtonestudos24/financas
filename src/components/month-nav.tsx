@@ -2,8 +2,10 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { monthKey, monthLabel, shiftMonth, type Month } from "@/lib/dates";
 
-export function MonthNav({ month, basePath }: { month: Month; basePath: string }) {
-  const href = (m: Month) => `${basePath}?mes=${monthKey(m)}`;
+type Props = { month: Month; basePath: string; param?: string };
+
+export function MonthNav({ month, basePath, param = "mes" }: Props) {
+  const href = (m: Month) => `${basePath}?${param}=${monthKey(m)}`;
   return (
     <div className="flex items-center justify-center gap-2">
       <Link href={href(shiftMonth(month, -1))} className="btn-ghost" aria-label="Mês anterior">

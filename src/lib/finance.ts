@@ -28,6 +28,8 @@ export async function accountBalances(userId: string, scope: BalanceScope) {
 
   const balances = new Map(accounts.map((a) => [a.id, a.initialBalance]));
   for (const row of outgoing) {
+    // Compras no cartão não mexem em conta; só o pagamento da fatura (CARD_PAYMENT) mexe.
+    if (!row.accountId) continue;
     const sign = row.type === "INCOME" ? 1 : -1;
     balances.set(row.accountId, (balances.get(row.accountId) ?? 0) + sign * (row._sum.amount ?? 0));
   }

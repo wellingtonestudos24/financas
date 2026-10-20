@@ -6,10 +6,11 @@ import { saveTransaction } from "../actions";
 import { TRANSACTION_TYPES, type TransactionTypeKey } from "@/lib/labels";
 
 type Option = { id: string; name: string };
-type CategoryOption = Option & { type: TransactionTypeKey };
+type CategoryOption = Option & { type: string };
 
 type Props = {
   accounts: Option[];
+  cards: Option[];
   categories: CategoryOption[];
   initial: {
     id?: string;
@@ -24,10 +25,15 @@ type Props = {
   };
 };
 
-export function TransactionForm({ accounts, categories, initial }: Props) {
+export function TransactionForm({ accounts, cards, categories, initial }: Props) {
   const [state, formAction, pending] = useActionState(saveTransaction, {});
   const [type, setType] = useState(initial.type);
+  const [source, setSource] = useState(initial.accountId);
   const isTransfer = type === "TRANSFER";
+  const canUseCard = type === "EXPENSE" && cards.length > 0;
+  // Ao sair de "Despesa", um cartão escolhido deixa de valer e volta para a primeira conta.
+  const selectedSource = !canUseCard && source.startsWith("card:") ? (accounts[0]?.id ?? "") : source;
+  const onCard = selectedSource.startsWith("card:");
   const categoryOptions = categories.filter((c) => c.type === type);
 
   return (
@@ -68,13 +74,32 @@ export function TransactionForm({ accounts, categories, initial }: Props) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="field">
-          <span>{isTransfer ? "Conta de origem" : "Conta"}</span>
-          <select name="accountId" defaultValue={initial.accountId} required>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
+          <span>{isTransfer ? "Conta de origem" : canUseCard ? "Conta ou cartão" : "Conta"}</span>
+          <select name="accountId" value={selectedSource} onChange={(e) => setSource(e.target.value)} required>
+            {canUseCard ? (
+              <>
+                <optgroup label="Contas">
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Cartões de crédito">
+                  {cards.map((c) => (
+                    <option key={c.id} value={`card:${c.id}`}>
+                      {c.name}
+                    </option>
+                  ))}
+                </optgroup>
+              </>
+            ) : (
+              accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))
+            )}
           </select>
         </label>
 
@@ -109,10 +134,14 @@ export function TransactionForm({ accounts, categories, initial }: Props) {
         )}
       </div>
 
-      <label className="flex items-center gap-2 text-sm text-slate-700">
-        <input type="checkbox" name="paid" defaultChecked={initial.paid} className="size-4 accent-teal-700" />
-        {type === "INCOME" ? "Já recebi" : type === "EXPENSE" ? "Já paguei" : "Já transferi"}
-      </label>
+      {onCard ? (
+        <p className="text-sm text-slate-500">A compra entra na fatura do cartão conforme a data e o dia de fechamento.</p>
+      ) : (
+        <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input type="checkbox" name="paid" defaultChecked={initial.paid} className="size-4 accent-teal-700" />
+          {type === "INCOME" ? "Já recebi" : type === "EXPENSE" ? "Já paguei" : "Já transferi"}
+        </label>
+      )}
 
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
 

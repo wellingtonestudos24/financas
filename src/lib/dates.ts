@@ -56,6 +56,10 @@ export function monthLabel({ year, month }: Month) {
   return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${year}`;
 }
 
+export function formatDate(date: Date) {
+  return new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(date);
+}
+
 export function formatDay(date: Date) {
   return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" }).format(date);
 }

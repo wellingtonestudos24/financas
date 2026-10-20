@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { ArrowDown, ArrowUp, Check, Clock, Landmark, Pencil, Plus, Scale, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Clock, CreditCard, Landmark, Pencil, Plus, Scale, Trash2 } from "lucide-react";
 import { MonthNav } from "@/components/month-nav";
 import { SummaryCard, SummarySkeleton } from "@/components/summary-card";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { formatDay, monthKey, monthRange, parseMonth } from "@/lib/dates";
+import { formatDay, monthKey, monthRange, parseMonth, toISODate } from "@/lib/dates";
 import { accountsOverview, monthSummary } from "@/lib/finance";
-import { isTransactionType, TRANSACTION_TYPES } from "@/lib/labels";
+import { ALL_TRANSACTION_TYPES, isAnyTransactionType } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
 import { deleteTransaction, togglePaid } from "../actions";
 
@@ -29,13 +29,16 @@ export default function TransactionsPage({ searchParams }: PageProps<"/transacoe
   );
 }
 
-const FILTERS = [{ key: "", label: "Todas" }, ...Object.entries(TRANSACTION_TYPES).map(([key, label]) => ({ key, label }))];
+const FILTERS = [
+  { key: "", label: "Todas" },
+  ...Object.entries(ALL_TRANSACTION_TYPES).map(([key, label]) => ({ key, label })),
+];
 
 async function Transactions({ searchParams }: { searchParams: PageProps<"/transacoes">["searchParams"] }) {
   const params = await searchParams;
   const user = await requireUser();
   const month = parseMonth(params.mes);
-  const type = isTransactionType(params.tipo) ? params.tipo : undefined;
+  const type = isAnyTransactionType(params.tipo) ? params.tipo : undefined;
   const { start, end } = monthRange(month);
 
   const [overview, summary, transactions] = await Promise.all([
@@ -43,7 +46,7 @@ async function Transactions({ searchParams }: { searchParams: PageProps<"/transa
     monthSummary(user.id, month),
     db.transaction.findMany({
       where: { userId: user.id, date: { gte: start, lt: end }, ...(type ? { type } : {}) },
-      include: { account: true, toAccount: true, category: true },
+      include: { account: true, toAccount: true, category: true, creditCard: true },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     }),
   ]);
@@ -103,24 +106,34 @@ async function Transactions({ searchParams }: { searchParams: PageProps<"/transa
                   return (
                     <tr key={t.id}>
                       <td className="px-5 py-3">
-                        <form action={togglePaid}>
-                          <input type="hidden" name="id" value={t.id} />
-                          <button
-                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                              t.paid ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
-                            }`}
-                            title="Alternar situação"
+                        {t.creditCard && t.type === "EXPENSE" ? (
+                          <Link
+                            href={`/cartoes/${t.creditCard.id}?fatura=${toISODate(t.invoiceMonth!).slice(0, 7)}`}
+                            className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800"
+                            title="Ver fatura"
                           >
-                            {t.paid ? <Check className="size-3" /> : <Clock className="size-3" />}
-                            {t.paid ? "Efetivada" : "Pendente"}
-                          </button>
-                        </form>
+                            <CreditCard className="size-3" /> No cartão
+                          </Link>
+                        ) : (
+                          <form action={togglePaid}>
+                            <input type="hidden" name="id" value={t.id} />
+                            <button
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                                t.paid ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
+                              }`}
+                              title="Alternar situação"
+                            >
+                              {t.paid ? <Check className="size-3" /> : <Clock className="size-3" />}
+                              {t.paid ? "Efetivada" : "Pendente"}
+                            </button>
+                          </form>
+                        )}
                       </td>
                       <td className="px-3 py-3 text-slate-600">{formatDay(t.date)}</td>
                       <td className="px-3 py-3 font-medium">{t.description}</td>
                       <td className="px-3 py-3">
-                        {t.type === "TRANSFER" ? (
-                          <span className="text-slate-500">Transferência</span>
+                        {t.type === "TRANSFER" || t.type === "CARD_PAYMENT" ? (
+                          <span className="text-slate-500">{ALL_TRANSACTION_TYPES[t.type]}</span>
                         ) : (
                           <span className="inline-flex items-center gap-2">
                             <span
@@ -132,8 +145,9 @@ async function Transactions({ searchParams }: { searchParams: PageProps<"/transa
                         )}
                       </td>
                       <td className="px-3 py-3 text-slate-600">
-                        {t.account.name}
+                        {t.account?.name ?? t.creditCard?.name}
                         {t.toAccount && ` → ${t.toAccount.name}`}
+                        {t.type === "CARD_PAYMENT" && t.creditCard && ` → ${t.creditCard.name}`}
                       </td>
                       <td className={`px-3 py-3 text-right font-semibold ${color}`}>
                         {sign} {formatCents(t.amount)}

@@ -16,6 +16,7 @@ model User {
   accounts     Account[]
   categories   Category[]
   transactions Transaction[]
+  creditCards  CreditCard[]
 }
 
 enum AccountType {
@@ -38,6 +39,26 @@ model Account {
   createdAt      DateTime      @default(now())
   transactions   Transaction[] @relation("AccountTransactions")
   transfersIn    Transaction[] @relation("TransferDestination")
+  creditCards    CreditCard[]
+
+  @@index([userId])
+}
+
+model CreditCard {
+  id               String        @id @default(cuid())
+  userId           String
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String
+  color            String        @default("#7c3aed")
+  limit            Int
+  // Dias limitados a 1-28 para existirem em todos os meses.
+  closingDay       Int
+  dueDay           Int
+  // Conta sugerida para pagar as faturas.
+  paymentAccountId String?
+  paymentAccount   Account?      @relation(fields: [paymentAccountId], references: [id], onDelete: SetNull)
+  createdAt        DateTime      @default(now())
+  transactions     Transaction[]
 
   @@index([userId])
 }
@@ -46,6 +67,8 @@ enum TransactionType {
   INCOME
   EXPENSE
   TRANSFER
+  // Pagamento de fatura: sai da conta, mas não conta como despesa (as compras já contaram).
+  CARD_PAYMENT
 }
 
 model Category {
@@ -61,22 +84,29 @@ model Category {
 }
 
 model Transaction {
-  id          String          @id @default(cuid())
-  userId      String
-  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type        TransactionType
-  description String
-  amount      Int
-  date        DateTime        @db.Date
-  paid        Boolean         @default(true)
-  accountId   String
-  account     Account         @relation("AccountTransactions", fields: [accountId], references: [id], onDelete: Cascade)
+  id           String          @id @default(cuid())
+  userId       String
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         TransactionType
+  description  String
+  amount       Int
+  date         DateTime        @db.Date
+  paid         Boolean         @default(true)
+  // Vazio nas compras no cartão; preenchido em todo o resto.
+  accountId    String?
+  account      Account?        @relation("AccountTransactions", fields: [accountId], references: [id], onDelete: Cascade)
+  // Compras no cartão (EXPENSE) e pagamentos de fatura (CARD_PAYMENT).
+  creditCardId String?
+  creditCard   CreditCard?     @relation(fields: [creditCardId], references: [id], onDelete: Cascade)
+  // Primeiro dia do mês em que a fatura fecha; fixado na criação.
+  invoiceMonth DateTime?       @db.Date
   // Só para transferências: conta que recebe o valor.
-  toAccountId String?
-  toAccount   Account?        @relation("TransferDestination", fields: [toAccountId], references: [id], onDelete: Cascade)
-  categoryId  String?
-  category    Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  createdAt   DateTime        @default(now())
+  toAccountId  String?
+  toAccount    Account?        @relation("TransferDestination", fields: [toAccountId], references: [id], onDelete: Cascade)
+  categoryId   String?
+  category     Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  createdAt    DateTime        @default(now())
 
   @@index([userId, date])
+  @@index([creditCardId, invoiceMonth])
 }

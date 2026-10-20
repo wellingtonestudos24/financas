@@ -22,7 +22,7 @@ export default function NewTransactionPage({ searchParams }: PageProps<"/transac
 async function NewTransaction({ searchParams }: { searchParams: PageProps<"/transacoes/nova">["searchParams"] }) {
   const params = await searchParams;
   const user = await requireUser();
-  const { accounts, categories } = await transactionFormOptions(user.id);
+  const { accounts, cards, categories } = await transactionFormOptions(user.id);
 
   if (accounts.length === 0) {
     return (
@@ -35,13 +35,14 @@ async function NewTransaction({ searchParams }: { searchParams: PageProps<"/tran
     );
   }
 
-  const accountId = typeof params.conta === "string" && accounts.some((a) => a.id === params.conta)
-    ? params.conta
-    : accounts[0].id;
+  // ?conta= aceita o id de uma conta ou "card:<id>" de um cartão.
+  const sources = [...accounts.map((a) => a.id), ...cards.map((c) => `card:${c.id}`)];
+  const accountId = typeof params.conta === "string" && sources.includes(params.conta) ? params.conta : accounts[0].id;
 
   return (
     <TransactionForm
       accounts={accounts}
+      cards={cards}
       categories={categories}
       initial={{
         type: isTransactionType(params.tipo) ? params.tipo : "EXPENSE",

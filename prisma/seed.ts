@@ -10,9 +10,16 @@ const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.
 const EMAIL = "demo@financas.test";
 const PASSWORD = "demo-financas-123";
 
-function day(offset: number) {
+function day(offset: number, monthDelta = 0) {
   const today = new Date();
-  return new Date(Date.UTC(today.getFullYear(), today.getMonth(), offset));
+  return new Date(Date.UTC(today.getFullYear(), today.getMonth() + monthDelta, offset));
+}
+
+// Mesma regra de src/lib/cards.ts (que não roda fora do Next por causa do "server-only").
+const CLOSING_DAY = 5;
+function invoiceMonth(date: Date) {
+  const delta = date.getUTCDate() >= CLOSING_DAY ? 1 : 0;
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + delta, 1));
 }
 
 async function main() {
@@ -58,6 +65,46 @@ async function main() {
       { type: "EXPENSE", description: "Internet", amount: 11990, date: day(28), paid: false, accountId: account("Banco"), categoryId: category("Moradia") },
       { type: "TRANSFER", description: "Saque", amount: 20000, date: day(9), accountId: account("Banco"), toAccountId: account("Carteira") },
     ].map((t) => ({ ...t, type: t.type as TransactionType, userId: user.id })),
+  });
+
+  const card = await db.creditCard.create({
+    data: {
+      userId: user.id,
+      name: "Cartão principal",
+      color: "#7c3aed",
+      limit: 500000,
+      closingDay: CLOSING_DAY,
+      dueDay: 12,
+      paymentAccountId: account("Banco"),
+    },
+  });
+  const purchases = [
+    { description: "Farmácia", amount: 4500, date: day(25, -1), categoryId: category("Lazer") },
+    { description: "Streaming", amount: 3990, date: day(2), categoryId: category("Lazer") },
+    { description: "Delivery", amount: 7800, date: day(7), categoryId: category("Alimentação") },
+    { description: "Tênis", amount: 32000, date: day(15), categoryId: category("Lazer") },
+  ];
+  await db.transaction.createMany({
+    data: purchases.map((p) => ({
+      ...p,
+      type: "EXPENSE" as const,
+      userId: user.id,
+      creditCardId: card.id,
+      invoiceMonth: invoiceMonth(p.date),
+    })),
+  });
+  // Fatura que fechou neste mês (Farmácia + Streaming), já paga.
+  await db.transaction.create({
+    data: {
+      userId: user.id,
+      type: "CARD_PAYMENT",
+      description: `Fatura ${card.name}`,
+      amount: 8490,
+      date: day(12),
+      accountId: account("Banco"),
+      creditCardId: card.id,
+      invoiceMonth: day(1),
+    },
   });
 
   console.log(`Usuário de demonstração criado: ${EMAIL}`);
