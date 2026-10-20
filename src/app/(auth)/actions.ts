@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { resetDemoUser } from "@/lib/demo";
 import { endSession, startSession } from "@/lib/session";
 
 export type AuthState = { error?: string };
@@ -61,6 +62,13 @@ export async function signIn(_: AuthState, formData: FormData): Promise<AuthStat
     return { error: "E-mail ou senha incorretos" };
   }
   await startSession(user.id);
+  redirect("/");
+}
+
+// Entra na conta demo com os dados recriados, para cada visitante ver o app no estado original.
+export async function signInDemo() {
+  const userId = await resetDemoUser(db);
+  await startSession(userId);
   redirect("/");
 }
 

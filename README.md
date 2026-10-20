@@ -126,3 +126,13 @@ use `docker compose stop`. Os dados ficam guardados num volume do Docker e não 
   `npm install`, `npm run db:deploy` e reinicie o `npm run dev`.
 - **Caiu na tela de login sem motivo**: a sessão expirou ou o usuário foi recriado pelo seed.
   Entre de novo.
+
+## Publicado na Vercel
+
+- **App:** Vercel, importado do GitHub. Cada push na `main` gera um deploy novo.
+- **Banco:** Prisma Postgres, ligado pela aba Storage da Vercel com o prefixo `DATABASE`. Isso cria
+  o `DATABASE_URL` sozinho. O `SESSION_PASSWORD` é configurado à mão em Settings → Environment Variables.
+- **Build Command:** `prisma migrate deploy && next build`, em Settings → Build and Deployment. Assim as
+  migrações novas são aplicadas no banco de produção a cada deploy.
+- **Conta demo:** o botão "Entrar como demonstração" da tela de login recria os dados de exemplo e
+  entra direto. Para recriar pelo terminal: `DATABASE_URL="<url de produção>" npm run db:seed`.
